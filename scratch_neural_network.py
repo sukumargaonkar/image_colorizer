@@ -5,7 +5,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-learning_rate = 0.01
+learning_rate = 0.1
+max_epoch = 10
 filename = "ip2_min.jpg"
 INPUT_IMAGE_SRC = "C:/Users/sukum/OneDrive/Academic/Grad_Rutgers/Intro To AI (520)/Assignments/Assignment_4/image_colorizer/" + filename
 weight_mat = []
@@ -43,7 +44,10 @@ def predict(input_values):
     return curr_inputs
 
 def sigmoid(x):
-  return 1 / (1 + math.exp(-x))
+    if x < 0:
+        return 1 - 1 / (1 + math.exp(x))
+    else:
+        return 1 / (1 + math.exp(-x))
 
 def colorize_img(img_gray):
     global counter
@@ -76,46 +80,45 @@ if __name__ == "__main__":
     colorize_img(ip_gray)
 
     # Epoch
+    total_loss = [0, 0, 0]
+    for epoch in range(max_epoch):
+        epoch_loss = [0, 0, 0]
+        for row in range(ip_gray_height):
+            for col in range(ip_gray_width):
+                # for channel in range(3):
+                input_values = generate_grid(row, col, ip_gray)
+                predicted_val = predict(input_values)
+                # TODO: seperate each channel into independent neural network
+                # error_list = [m+n for m, n in zip(error_list, list(map(lambda z: z**2, [x - ip_img[row][col][i] for i, x in enumerate(predicted_val)])))]
+                error_list = [ip_img[row][col][i] - (x*255) for i, x in enumerate(predicted_val)]
+                pixel_loss = error_list
+                epoch_loss = [a + b for a, b in zip(epoch_loss, [abs(x) for x in pixel_loss])]
 
-    for row in range(ip_gray_height):
-        for col in range(ip_gray_width):
-            # for channel in range(3):
-            input_values = generate_grid(row, col, ip_gray)
-            predicted_val = predict(input_values)
-            # TODO: seperate each channel into independent neural network
-            # error_list = [m+n for m, n in zip(error_list, list(map(lambda z: z**2, [x - ip_img[row][col][i] for i, x in enumerate(predicted_val)])))]
-            error_list = [ip_img[row][col][i] - (x*255) for i, x in enumerate(predicted_val)]
-            epoc_loss = []
+                weight_sum = [[] for x in range(len(weight_mat))]
 
-            weight_sum = [[] for x in range(len(weight_mat))]
-
-            for i in range(len(weight_mat) - 1, -1, -1):
-                weight_sum[i] = [0 for x in range(len(weight_mat[i][0]))]
-                for y in range(len(weight_mat[i][0])):
-                    weight_sum[i][y] = 0
-                    for x in range(len(weight_mat[i])):
-                        weight_sum[i][y] = weight_sum[i][y] + weight_mat[i][x][y]
-
-            for i in range(len(weight_mat) - 1, -1, -1):
-                new_error_list = [0 for x in range(len(weight_mat[i]))]
-                for x in range(len(weight_mat[i])):
+                for i in range(len(weight_mat) - 1, -1, -1):
+                    weight_sum[i] = [0 for x in range(len(weight_mat[i][0]))]
                     for y in range(len(weight_mat[i][0])):
-                        weight_mat[i][x][y] = weight_mat[i][x][y] + learning_rate * error_list[y] * (weight_mat[i][x][y] / weight_sum[i][y])
-                        new_error_list[x] = new_error_list[x] + error_list[y] * (weight_mat[i][x][y] / weight_sum[i][y])
-                        error_list = new_error_list
+                        weight_sum[i][y] = 0
+                        for x in range(len(weight_mat[i])):
+                            weight_sum[i][y] = weight_sum[i][y] + weight_mat[i][x][y]
 
-                if i == len(weight_mat) - 1:
-                    epoc_loss = error_list
+                for i in range(len(weight_mat) - 1, -1, -1):
+                    new_error_list = [0 for x in range(len(weight_mat[i]))]
+                    for x in range(len(weight_mat[i])):
+                        for y in range(len(weight_mat[i][0])):
+                            weight_mat[i][x][y] = weight_mat[i][x][y] + learning_rate * error_list[y] * (weight_mat[i][x][y] / weight_sum[i][y])
+                            new_error_list[x] = new_error_list[x] + error_list[y] * (weight_mat[i][x][y] / weight_sum[i][y])
+                    error_list = new_error_list
 
+            print((epoch/max_epoch) * (100 / max_epoch) + ((row+1)/ip_gray_height) * (100 / max_epoch), "%")
 
+        epoch_loss = [x/ip_gray_height/ip_gray_width for x in epoch_loss]
+        f.write("Loss" + str(["{:.2f}".format(value) for value in epoch_loss]) + "\n")
 
-            f.write("Loss" + str(["{:.2f}".format(value) for value in epoc_loss]) + "\n")
-
-            f.write(str([["{:.2f}".format(y) for y in x] for x in weight_mat[0]]) + "\n")
-            print(row/ip_gray_height * 100, "%")
-
-        if row%10 == 0:
-            colorize_img(ip_gray)
+        f.write(str([["{:.2f}".format(y) for y in x] for x in weight_mat[0]]) + "\n")
+        f.flush()
+        colorize_img(ip_gray)
 
     # Test the Neural Network
 
